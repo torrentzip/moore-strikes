@@ -220,6 +220,130 @@
     font-size: 13px;
     letter-spacing: 1px;
   }
+
+  .ball-modal {
+    background: var(--panel);
+    border: 1px solid var(--cyan);
+    border-radius: 10px;
+    padding: 16px;
+    width: min(92vw, 640px);
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 0 30px rgba(61,232,255,0.2);
+  }
+  .ball-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .close-btn {
+    background: none;
+    border: none;
+    color: var(--dim);
+    font-size: 22px;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
+  }
+  .close-btn:hover { color: var(--pink); border: none; }
+  .brand-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .brand-tab {
+    background: transparent;
+    border: 1px solid var(--panel-edge);
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .brand-tab.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+  }
+  .ball-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .ball-card {
+    border: 1px solid var(--panel-edge);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .ball-card.selected {
+    border-color: var(--pink);
+    box-shadow: inset 0 0 0 1px var(--pink);
+  }
+  .ball-card:hover { border-color: var(--cyan); }
+  .ball-swatch {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: inset -4px -4px 8px rgba(0,0,0,0.35);
+  }
+  .ball-info { flex: 1; min-width: 0; }
+  .ball-name-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .ball-name {
+    font-size: 13px;
+    color: var(--cream);
+    font-weight: bold;
+  }
+  .ball-category {
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .ball-blurb {
+    font-size: 10px;
+    color: var(--dim);
+    margin: 3px 0 6px;
+    line-height: 1.3;
+  }
+  .stat-bars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .stat-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stat-bar-label {
+    font-size: 8px;
+    color: var(--dim);
+    letter-spacing: 0.5px;
+  }
+  .stat-bar-track {
+    height: 4px;
+    background: var(--panel-edge);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .stat-bar-fill {
+    height: 100%;
+    background: var(--cyan);
+  }
 </style>
 </head>
 <body>
@@ -245,6 +369,7 @@
   </div>
 
   <div class="controls">
+    <button id="ballButton">🎳 BALL</button>
     <button id="resetBtn">New Game</button>
   </div>
 </div>
@@ -255,6 +380,17 @@
     <div class="big" id="finalScore">0</div>
     <div class="msg" id="finalMsg">final score</div>
     <button id="playAgainBtn">Play Again</button>
+  </div>
+</div>
+
+<div class="overlay" id="ballOverlay">
+  <div class="ball-modal">
+    <div class="ball-modal-header">
+      <span class="sub" style="margin:0;">CHOOSE YOUR BALL</span>
+      <button id="closeBallModal" class="close-btn">&times;</button>
+    </div>
+    <div class="brand-tabs" id="brandTabs"></div>
+    <div class="ball-grid" id="ballGrid"></div>
   </div>
 </div>
 
@@ -288,6 +424,73 @@ const PIN_LAYOUT = [
   { id: 7, x: 175, y: 150 }, { id: 8, x: 205, y: 150 }, { id: 9, x: 235, y: 150 }, { id: 10, x: 265, y: 150 },
 ];
 
+// Ball roster — stats (hook/length/backend/control, each 0-10) are derived from each
+// ball's real published coverstock/core specs (RG, differential, hook potential rating).
+// hook: how strongly it responds to the curve dial. length: how far it skids before
+// the curve builds in. backend: how sharp the late break is. control: consistency
+// (higher = less throw-to-throw wobble).
+const BALLS = [
+  { id: 'storm-bionic', brand: 'Storm', name: 'Bionic', category: 'Flagship Benchmark',
+    blurb: 'Torsion A.I. symmetric core, NRG Hybrid cover — 2026\u2019s benchmark control-and-power piece.',
+    hook: 8, length: 6, backend: 7, control: 6, colors: ['#18c9e0', '#0d1b2a'] },
+  { id: 'storm-hyroad', brand: 'Storm', name: 'Hy-Road', category: 'Benchmark',
+    blurb: 'One of the most popular benchmark balls ever made — balanced control and power.',
+    hook: 6, length: 7, backend: 6, control: 7, colors: ['#2fb6a0', '#1c2b30'] },
+  { id: 'storm-tropical', brand: 'Storm', name: 'Tropical Surge', category: 'Control / Entry',
+    blurb: 'Entry-level and easy to control — smaller hook potential for drier lanes.',
+    hook: 3, length: 8, backend: 3, control: 9, colors: ['#2fd6c8', '#f2c94c'] },
+  { id: 'storm-spare', brand: 'Storm', name: 'Clear Storm White', category: 'Spare Ball',
+    blurb: 'Polyester spare ball built to go dead straight.',
+    hook: 0, length: 10, backend: 0, control: 10, colors: ['#f4ede1', '#b9b2a5'] },
+
+  { id: 'dv8-heckler', brand: 'DV8', name: 'Heckler', category: 'Flagship Heavy Oil',
+    blurb: 'DV8\u2019s flagship asymmetric — bold, aggressive motion built to attack heavy oil.',
+    hook: 9, length: 5, backend: 9, control: 4, colors: ['#ff2d4d', '#1a1a1a'] },
+  { id: 'dv8-collision', brand: 'DV8', name: 'Collision', category: 'Workhorse',
+    blurb: 'The dependable asymmetric workhorse of the DV8 lineup.',
+    hook: 7, length: 6, backend: 7, control: 6, colors: ['#ff8a3d', '#1a1a1a'] },
+  { id: 'dv8-troublemaker', brand: 'DV8', name: 'Trouble Maker', category: 'Mid-Performance Control',
+    blurb: 'Controllable, predictable reaction on medium oil — a great benchmark piece.',
+    hook: 5, length: 7, backend: 5, control: 7, colors: ['#a86bff', '#1a1a1a'] },
+  { id: 'dv8-spare', brand: 'DV8', name: 'Polyester Just Black', category: 'Spare Ball',
+    blurb: 'DV8\u2019s dedicated spare ball, near-zero hook potential.',
+    hook: 0, length: 10, backend: 0, control: 10, colors: ['#2b2b2b', '#0e0e0e'] },
+
+  { id: 'brunswick-infinity', brand: 'Brunswick', name: 'Infinity Quest Pearl', category: 'Flagship Heavy Oil',
+    blurb: 'Brunswick\u2019s 2026 asymmetric flagship built for heavier oil.',
+    hook: 8, length: 6, backend: 8, control: 5, colors: ['#7a1f3d', '#d4af37'] },
+  { id: 'brunswick-dangerzone', brand: 'Brunswick', name: 'Danger Zone', category: 'Mid-High Performance',
+    blurb: 'A well-rounded mid-high performance piece for medium-heavy conditions.',
+    hook: 6, length: 6, backend: 6, control: 6, colors: ['#ff6a00', '#1a1a1a'] },
+  { id: 'brunswick-rhino', brand: 'Brunswick', name: 'Rhino', category: 'Benchmark Control',
+    blurb: 'The iconic entry/benchmark ball — great balance of power and control.',
+    hook: 3, length: 8, backend: 3, control: 9, colors: ['#7d8a99', '#2c3e50'] },
+  { id: 'brunswick-tzone', brand: 'Brunswick', name: 'TZone', category: 'Spare Ball',
+    blurb: 'Brunswick\u2019s classic dedicated spare ball.',
+    hook: 0, length: 10, backend: 0, control: 10, colors: ['#e8eef5', '#3d6fae'] },
+
+  { id: 'motiv-apexjackal', brand: 'Motiv', name: 'Apex Jackal', category: 'Flagship Heavy Oil',
+    blurb: 'The premium flagship of the Jackal line — huge flare, huge hook.',
+    hook: 9, length: 5, backend: 9, control: 4, colors: ['#39d353', '#0d1f12'] },
+  { id: 'motiv-venomshock', brand: 'Motiv', name: 'Venom Shock', category: 'Benchmark',
+    blurb: 'The most recommended benchmark ball in the Motiv line — smooth and versatile.',
+    hook: 6, length: 7, backend: 6, control: 7, colors: ['#1f6b2c', '#7ee081'] },
+  { id: 'motiv-jackalghost', brand: 'Motiv', name: 'Jackal Ghost', category: 'Strong Hook, Extra Length',
+    blurb: 'Strong hook without giving up continuation — good for lower rev rates.',
+    hook: 7, length: 7, backend: 7, control: 6, colors: ['#4fb3bf', '#37474f'] },
+  { id: 'motiv-aspire', brand: 'Motiv', name: 'Aspire', category: 'Spare Ball',
+    blurb: 'Motiv\u2019s polyester Tyro-core spare ball — built to go dead straight.',
+    hook: 0, length: 10, backend: 0, control: 10, colors: ['#9b59b6', '#c0c0c0'] },
+];
+const BRANDS = ['Storm', 'DV8', 'Brunswick', 'Motiv'];
+
+let currentBall = BALLS[0];
+try {
+  const savedId = localStorage.getItem('moore_strikes_ball');
+  const found = BALLS.find(b => b.id === savedId);
+  if (found) currentBall = found;
+} catch (e) { /* localStorage unavailable, fall back to default ball */ }
+
 let pins = [];
 let ball = { x: START_X, y: START_Y, vx: 0, vy: 0, spin: 0, r: BALL_R, mass: BALL_MASS };
 let state = 'aiming';
@@ -314,6 +517,18 @@ function updateCurveReadout() {
 }
 curveSlider.addEventListener('input', updateCurveReadout);
 updateCurveReadout();
+
+function selectBall(id) {
+  const b = BALLS.find(x => x.id === id);
+  if (!b) return;
+  currentBall = b;
+  try { localStorage.setItem('moore_strikes_ball', id); } catch (e) { /* ignore */ }
+  updateBallButton();
+  renderBallModal();
+}
+function updateBallButton() {
+  document.getElementById('ballButton').textContent = `\u{1F3B3} ${currentBall.brand.toUpperCase()} ${currentBall.name.toUpperCase()}`;
+}
 
 function resetPins() {
   pins = PIN_LAYOUT.map(p => ({ ...p, vx: 0, vy: 0, standing: true, moving: false, fallT: 0, r: PIN_R, mass: PIN_MASS }));
@@ -394,9 +609,18 @@ function physicsFrame() {
   }
 
   if (activeBall) {
-    const progress = Math.max(0, Math.min(1, (START_Y - ball.y) / (START_Y - 100)));
-    ball.vx += ball.spin * 0.05 * progress;
+    const traveled = START_Y - ball.y;
+    const totalDist = START_Y - 100;
+    const skidFrac = (currentBall.length / 10) * 0.55;
+    let progress = ((traveled / totalDist) - skidFrac) / (1 - skidFrac);
+    progress = Math.max(0, Math.min(1, progress));
+    const backendExp = 1 + currentBall.backend / 3; // higher backend = later, sharper snap
+    const shaped = Math.pow(progress, backendExp);
+    ball.vx += ball.spin * 0.05 * shaped;
     ball.vx *= 0.995;
+
+    const wobble = ((10 - currentBall.control) / 10) * 0.06;
+    if (wobble > 0) ball.vx += (Math.random() - 0.5) * wobble;
   }
 
   pins.forEach(p => {
@@ -594,8 +818,9 @@ function drawPins() {
   });
 }
 function drawBall() {
+  const [c1, c2] = currentBall.colors;
   const g = ctx.createRadialGradient(ball.x - 3, ball.y - 3, 1, ball.x, ball.y, ball.r);
-  g.addColorStop(0, '#5be8ff'); g.addColorStop(1, '#1a6f8a');
+  g.addColorStop(0, c1); g.addColorStop(1, c2);
   ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
 }
 function drawAim() {
@@ -612,7 +837,7 @@ function drawAim() {
   const vx = dragCurrent.x - commitPoint.x, vy = dragCurrent.y - commitPoint.y;
   if (vy >= 0) return;
   const power = Math.min(1, Math.hypot(vx, vy) / 150);
-  const spinEst = getCurveSetting();
+  const spinEst = getCurveSetting() * (currentBall.hook / 10);
 
   ctx.save();
   ctx.strokeStyle = `rgba(255,61,129,${0.4 + power * 0.5})`;
@@ -622,10 +847,16 @@ function drawAim() {
   let px = ballXAtCommit, py = START_Y;
   let pvx = Math.max(-13, Math.min(13, vx * 0.085));
   let pvy = Math.max(-16, Math.min(-5, vy * 0.11));
+  const skidFrac = (currentBall.length / 10) * 0.55;
+  const backendExp = 1 + currentBall.backend / 3;
+  const totalDist = START_Y - 100;
   ctx.moveTo(px, py);
   for (let t = 0; t < 40; t++) {
-    const progress = Math.max(0, Math.min(1, (START_Y - py) / (START_Y - 100)));
-    pvx += spinEst * 9 * 0.05 * progress;
+    const traveled = START_Y - py;
+    let progress = ((traveled / totalDist) - skidFrac) / (1 - skidFrac);
+    progress = Math.max(0, Math.min(1, progress));
+    const shaped = Math.pow(progress, backendExp);
+    pvx += spinEst * 9 * 0.05 * shaped;
     px += pvx * 2; py += pvy * 2;
     ctx.lineTo(px, py);
     if (py < 100) break;
@@ -719,7 +950,7 @@ function onUp() {
   ball.x = ballXAtCommit;
   ball.vx = Math.max(-13, Math.min(13, vx * 0.085));
   ball.vy = Math.max(-16, Math.min(-5, vy * 0.11));
-  ball.spin = getCurveSetting() * 9;
+  ball.spin = getCurveSetting() * 9 * (currentBall.hook / 10);
   state = 'rolling';
 }
 
@@ -733,6 +964,80 @@ canvas.addEventListener('touchend', onUp);
 document.getElementById('resetBtn').addEventListener('click', newGame);
 document.getElementById('playAgainBtn').addEventListener('click', newGame);
 
+// ---------- Ball selection modal ----------
+let activeBrandTab = currentBall.brand;
+function renderBrandTabs() {
+  const wrap = document.getElementById('brandTabs');
+  wrap.innerHTML = '';
+  BRANDS.forEach(brand => {
+    const btn = document.createElement('button');
+    btn.className = 'brand-tab' + (brand === activeBrandTab ? ' active' : '');
+    btn.textContent = brand;
+    btn.addEventListener('click', () => { activeBrandTab = brand; renderBallModal(); });
+    wrap.appendChild(btn);
+  });
+}
+function statBar(label, value) {
+  const wrap = document.createElement('div');
+  wrap.className = 'stat-bar-wrap';
+  const lbl = document.createElement('div');
+  lbl.className = 'stat-bar-label';
+  lbl.textContent = label;
+  const track = document.createElement('div');
+  track.className = 'stat-bar-track';
+  const fill = document.createElement('div');
+  fill.className = 'stat-bar-fill';
+  fill.style.width = `${value * 10}%`;
+  track.appendChild(fill);
+  wrap.appendChild(lbl); wrap.appendChild(track);
+  return wrap;
+}
+function renderBallModal() {
+  renderBrandTabs();
+  const grid = document.getElementById('ballGrid');
+  grid.innerHTML = '';
+  BALLS.filter(b => b.brand === activeBrandTab).forEach(b => {
+    const card = document.createElement('div');
+    card.className = 'ball-card' + (b.id === currentBall.id ? ' selected' : '');
+    const swatch = document.createElement('div');
+    swatch.className = 'ball-swatch';
+    swatch.style.background = `radial-gradient(circle at 35% 35%, ${b.colors[0]}, ${b.colors[1]})`;
+    const info = document.createElement('div');
+    info.className = 'ball-info';
+    const nameRow = document.createElement('div');
+    nameRow.className = 'ball-name-row';
+    const name = document.createElement('span');
+    name.className = 'ball-name';
+    name.textContent = b.name;
+    const cat = document.createElement('span');
+    cat.className = 'ball-category';
+    cat.textContent = b.category;
+    nameRow.appendChild(name); nameRow.appendChild(cat);
+    const blurb = document.createElement('div');
+    blurb.className = 'ball-blurb';
+    blurb.textContent = b.blurb;
+    const bars = document.createElement('div');
+    bars.className = 'stat-bars';
+    bars.appendChild(statBar('HOOK', b.hook));
+    bars.appendChild(statBar('LENGTH', b.length));
+    bars.appendChild(statBar('BACKEND', b.backend));
+    bars.appendChild(statBar('CONTROL', b.control));
+    info.appendChild(nameRow); info.appendChild(blurb); info.appendChild(bars);
+    card.appendChild(swatch); card.appendChild(info);
+    card.addEventListener('click', () => selectBall(b.id));
+    grid.appendChild(card);
+  });
+}
+document.getElementById('ballButton').addEventListener('click', () => {
+  activeBrandTab = currentBall.brand;
+  renderBallModal();
+  document.getElementById('ballOverlay').classList.add('show');
+});
+document.getElementById('closeBallModal').addEventListener('click', () => {
+  document.getElementById('ballOverlay').classList.remove('show');
+});
+
+updateBallButton();
 newGame();
 loop();
 </script>
