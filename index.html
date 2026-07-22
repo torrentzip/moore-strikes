@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Moore Strikes</title>
+<style>
+  :root {
+    --bg: #100e1a;
+    --panel: #1c1830;
+    --panel-edge: #2c2547;
+    --wood-a: #c9924f;
+    --wood-b: #8a5a2b;
+    --gutter: #241f38;
+    --pink: #ff3d81;
+    --cyan: #3de8ff;
+    --cream: #f4ede1;
+    --dim: #7a7391;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: radial-gradient(ellipse at 50% -10%, #251f3d 0%, var(--bg) 60%);
+    color: var(--cream);
+    font-family: 'Courier New', monospace;
+    display: flex;
+    justify-content: center;
+  }
+  .stage {
+    width: 100%;
+    max-width: 480px;
+    padding: 18px 14px 30px;
+  }
+  h1.marquee {
+    text-align: center;
+    font-family: Impact, 'Arial Black', sans-serif;
+    letter-spacing: 2px;
+    font-size: 26px;
+    margin: 0 0 2px;
+    color: var(--cyan);
+    text-shadow: 0 0 6px rgba(61,232,255,0.8), 0 0 18px rgba(61,232,255,0.4);
+  }
+  .sub {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    margin-bottom: 14px;
+    text-transform: uppercase;
+  }
+  .lane-wrap {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 10px 30px rgba(0,0,0,0.5);
+  }
+  canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 6px;
+    touch-action: none;
+    cursor: grab;
+  }
+  .hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--dim);
+    margin: 8px 0 4px;
+    min-height: 16px;
+  }
+  .hint.active { color: var(--pink); }
+
+  .curve-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .curve-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--dim);
+  }
+  .curve-readout {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--cyan);
+    min-width: 84px;
+    text-align: left;
+  }
+  input[type="range"]#curveSlider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 160px;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--pink), var(--panel-edge), var(--cyan));
+    outline: none;
+  }
+  input[type="range"]#curveSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--cream);
+    border: 2px solid var(--panel);
+    box-shadow: 0 0 6px rgba(244,237,225,0.6);
+    cursor: pointer;
+  }
+  input[type="range"]#curveSlider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--cream);
+    border: 2px solid var(--panel);
+    cursor: pointer;
+  }
+
+  .scoreboard {
+    margin-top: 14px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 8px;
+    padding: 8px 6px;
+    overflow-x: auto;
+  }
+  table.score {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 460px;
+  }
+  .frame-cell {
+    border: 1px solid var(--panel-edge);
+    vertical-align: top;
+    width: 9%;
+    position: relative;
+  }
+  .frame-cell.current {
+    border-color: var(--pink);
+    box-shadow: inset 0 0 0 1px var(--pink);
+  }
+  .rolls-row {
+    display: flex;
+    border-bottom: 1px solid var(--panel-edge);
+  }
+  .roll-box {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    padding: 3px 0;
+    color: var(--cyan);
+    border-left: 1px solid var(--panel-edge);
+  }
+  .roll-box:first-child { border-left: none; }
+  .frame-score {
+    text-align: center;
+    font-size: 14px;
+    padding: 4px 0;
+    color: var(--cream);
+    font-weight: bold;
+    min-height: 20px;
+  }
+  .frame-num {
+    text-align: center;
+    font-size: 9px;
+    color: var(--dim);
+    padding-top: 2px;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  button {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    color: var(--cream);
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 9px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  button:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,8,18,0.86);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .overlay.show { display: flex; }
+  .overlay-card {
+    background: var(--panel);
+    border: 1px solid var(--cyan);
+    border-radius: 10px;
+    padding: 28px 34px;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(61,232,255,0.25);
+  }
+  .overlay-card .big {
+    font-family: Impact, 'Arial Black', sans-serif;
+    font-size: 42px;
+    color: var(--pink);
+    text-shadow: 0 0 10px rgba(255,61,129,0.6);
+  }
+  .overlay-card .msg {
+    color: var(--dim);
+    margin: 6px 0 18px;
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <h1 class="marquee">MOORE STRIKES</h1>
+  <div class="sub">Slide to aim &middot; set your hook below &middot; swipe up to bowl</div>
+
+  <div class="lane-wrap">
+    <canvas id="lane" width="440" height="680"></canvas>
+  </div>
+  <div class="hint" id="hint">Frame 1 — slide the ball, then swipe up to bowl</div>
+
+  <div class="curve-control">
+    <span class="curve-label">HOOK</span>
+    <input type="range" id="curveSlider" min="-10" max="10" step="1" value="0">
+    <span class="curve-readout" id="curveReadout">STRAIGHT</span>
+  </div>
+
+  <div class="scoreboard">
+    <table class="score">
+      <tr id="rollsRow"></tr>
+    </table>
+  </div>
+
+  <div class="controls">
+    <button id="resetBtn">New Game</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div class="sub" style="margin-bottom:6px;">GAME OVER</div>
+    <div class="big" id="finalScore">0</div>
+    <div class="msg" id="finalMsg">final score</div>
+    <button id="playAgainBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('lane');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const laneLeft = 90, laneRight = 350;
+const gutterLeft = 50, gutterRight = 390;
+const foulLineY = 600;
+const deckLeft = laneLeft - 15, deckRight = laneRight + 15;
+const deckTop = 95, deckBottom = 280;
+
+const PIN_R = 9;
+const BALL_R = 10;
+const BALL_MASS = 6;
+const PIN_MASS = 1;
+const RESTITUTION = 0.35;
+const FALL_THRESHOLD = 2.2;
+const PIN_FRICTION = 0.94;
+const STOP_EPS = 0.12;
+const SUBSTEPS = 4;
+const REVEAL_HOLD = 80; // frames to hold on the result before resetting (~1.3s)
+const START_X = 220, START_Y = 580;
+
+const PIN_LAYOUT = [
+  { id: 1, x: 220, y: 240 },
+  { id: 2, x: 205, y: 210 }, { id: 3, x: 235, y: 210 },
+  { id: 4, x: 190, y: 180 }, { id: 5, x: 220, y: 180 }, { id: 6, x: 250, y: 180 },
+  { id: 7, x: 175, y: 150 }, { id: 8, x: 205, y: 150 }, { id: 9, x: 235, y: 150 }, { id: 10, x: 265, y: 150 },
+];
+
+let pins = [];
+let ball = { x: START_X, y: START_Y, vx: 0, vy: 0, spin: 0, r: BALL_R, mass: BALL_MASS };
+let state = 'aiming';
+let frames = Array.from({ length: 10 }, () => ({ rolls: [] }));
+let currentFrameIdx = 0;
+let pinsStandingBeforeRoll = 10;
+let gameOver = false;
+
+let dragging = false, committed = false;
+let initialTouch = null, initialBallX = 0;
+let commitPoint = null, ballXAtCommit = 0;
+let dragCurrent = null;
+
+let revealFrames = 0;
+let pendingKnocked = 0;
+let revealText = '';
+
+const curveSlider = document.getElementById('curveSlider');
+const curveReadout = document.getElementById('curveReadout');
+function getCurveSetting() { return parseInt(curveSlider.value, 10) / 10; }
+function updateCurveReadout() {
+  const v = parseInt(curveSlider.value, 10);
+  curveReadout.textContent = v === 0 ? 'STRAIGHT' : `${Math.abs(v) * 10}% ${v > 0 ? 'RIGHT' : 'LEFT'}`;
+}
+curveSlider.addEventListener('input', updateCurveReadout);
+updateCurveReadout();
+
+function resetPins() {
+  pins = PIN_LAYOUT.map(p => ({ ...p, vx: 0, vy: 0, standing: true, moving: false, fallT: 0, r: PIN_R, mass: PIN_MASS }));
+}
+function resetBall() {
+  ball.x = START_X; ball.y = START_Y; ball.vx = 0; ball.vy = 0; ball.spin = 0;
+}
+function newGame() {
+  frames = Array.from({ length: 10 }, () => ({ rolls: [] }));
+  currentFrameIdx = 0;
+  gameOver = false;
+  document.getElementById('overlay').classList.remove('show');
+  resetPins();
+  resetBall();
+  state = 'aiming';
+  updateHint();
+  renderScoreboard();
+}
+
+function collideCircles(a, b, restitution) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  let dist = Math.hypot(dx, dy);
+  const minDist = a.r + b.r;
+  if (dist >= minDist) return;
+  if (dist < 0.0001) dist = 0.0001;
+  const nx = dx / dist, ny = dy / dist;
+  const overlap = minDist - dist;
+  const totalMass = a.mass + b.mass;
+  a.x -= nx * overlap * (b.mass / totalMass);
+  a.y -= ny * overlap * (b.mass / totalMass);
+  b.x += nx * overlap * (a.mass / totalMass);
+  b.y += ny * overlap * (a.mass / totalMass);
+  const rvx = b.vx - a.vx, rvy = b.vy - a.vy;
+  const rvn = rvx * nx + rvy * ny;
+  if (rvn < 0) {
+    const j = -(1 + restitution) * rvn / (1 / a.mass + 1 / b.mass);
+    const ix = j * nx, iy = j * ny;
+    a.vx -= ix / a.mass; a.vy -= iy / a.mass;
+    b.vx += ix / b.mass; b.vy += iy / b.mass;
+  }
+}
+function pinSpeed(p) { return Math.hypot(p.vx, p.vy); }
+function maybeTopple(p) {
+  if (p.standing && pinSpeed(p) > FALL_THRESHOLD) p.standing = false;
+  if (!p.standing) p.moving = true;
+}
+
+function physicsFrame() {
+  const activeBall = state === 'rolling';
+  for (let s = 0; s < SUBSTEPS; s++) {
+    if (activeBall) { ball.x += ball.vx / SUBSTEPS; ball.y += ball.vy / SUBSTEPS; }
+    pins.forEach(p => { if (p.moving) { p.x += p.vx / SUBSTEPS; p.y += p.vy / SUBSTEPS; } });
+
+    if (activeBall) {
+      pins.forEach(p => {
+        if (p.standing || p.moving) { collideCircles(ball, p, RESTITUTION); maybeTopple(p); }
+      });
+    }
+    for (let i = 0; i < pins.length; i++) {
+      const p1 = pins[i];
+      if (!(p1.standing || p1.moving)) continue;
+      for (let j = i + 1; j < pins.length; j++) {
+        const p2 = pins[j];
+        if (!(p2.standing || p2.moving)) continue;
+        if (!p1.moving && !p2.moving) continue;
+        collideCircles(p1, p2, 0.25);
+        maybeTopple(p1); maybeTopple(p2);
+      }
+    }
+    pins.forEach(p => {
+      if (p.moving) {
+        if (p.x < deckLeft) { p.x = deckLeft; p.vx *= -0.3; }
+        if (p.x > deckRight) { p.x = deckRight; p.vx *= -0.3; }
+        if (p.y < deckTop) { p.y = deckTop; p.vy *= -0.3; }
+        if (p.y > deckBottom) { p.y = deckBottom; p.vy *= -0.3; }
+      }
+    });
+  }
+
+  if (activeBall) {
+    const progress = Math.max(0, Math.min(1, (START_Y - ball.y) / (START_Y - 100)));
+    ball.vx += ball.spin * 0.05 * progress;
+    ball.vx *= 0.995;
+  }
+
+  pins.forEach(p => {
+    if (p.moving) {
+      p.vx *= PIN_FRICTION; p.vy *= PIN_FRICTION;
+      if (pinSpeed(p) < STOP_EPS) { p.vx = 0; p.vy = 0; p.moving = false; }
+    }
+    if (!p.standing && p.fallT < 1) p.fallT += 0.035;
+  });
+}
+
+function checkBallDone() {
+  if (state !== 'rolling') return;
+  const pastDeck = ball.y < 90;
+  const oob = ball.x < gutterLeft - 30 || ball.x > gutterRight + 30;
+  const stalled = Math.abs(ball.vy) < 0.4;
+  if (pastDeck || oob || stalled) state = 'settling';
+}
+function anyPinsMoving() { return pins.some(p => p.moving); }
+
+function prepareNextRoll(doResetPins) {
+  if (doResetPins) resetPins();
+  resetBall();
+  state = 'aiming';
+  updateHint();
+  renderScoreboard();
+}
+function nextFrame() {
+  currentFrameIdx++;
+  if (currentFrameIdx > 9) { endGame(); return; }
+  prepareNextRoll(true);
+}
+function endGame() {
+  gameOver = true;
+  const scores = computeFrameScores();
+  const total = scores[9] != null ? scores[9] : (scores.filter(s => s != null).pop() || 0);
+  document.getElementById('finalScore').textContent = total;
+  let msg = 'nice roll, run it back';
+  if (total === 300) msg = 'PERFECT GAME!!';
+  else if (total >= 200) msg = "that's a great score";
+  else if (total >= 150) msg = 'solid game';
+  document.getElementById('finalMsg').textContent = msg;
+  document.getElementById('overlay').classList.add('show');
+  renderScoreboard();
+}
+function processRollResult(pinsKnocked) {
+  const frame = frames[currentFrameIdx];
+  frame.rolls.push(pinsKnocked);
+  if (currentFrameIdx < 9) {
+    if (frame.rolls.length === 1 && pinsKnocked === 10) nextFrame();
+    else if (frame.rolls.length === 2) nextFrame();
+    else prepareNextRoll(false);
+  } else {
+    const r = frame.rolls;
+    if (r.length === 1) {
+      if (r[0] === 10) prepareNextRoll(true); else prepareNextRoll(false);
+    } else if (r.length === 2) {
+      if (r[0] === 10) prepareNextRoll(r[1] === 10);
+      else if (r[0] + r[1] === 10) prepareNextRoll(true);
+      else endGame();
+    } else if (r.length === 3) endGame();
+  }
+}
+function revealMessage(knocked) {
+  if (knocked === 10 && pinsStandingBeforeRoll === 10) return 'STRIKE!';
+  if (knocked === pinsStandingBeforeRoll && pinsStandingBeforeRoll > 0 && pinsStandingBeforeRoll < 10) return 'SPARE!';
+  if (knocked === 0) return 'GUTTER';
+  return `${knocked} PIN${knocked === 1 ? '' : 'S'}`;
+}
+function beginReveal() {
+  const standingAfter = pins.filter(p => p.standing).length;
+  pendingKnocked = Math.max(0, pinsStandingBeforeRoll - standingAfter);
+  revealText = revealMessage(pendingKnocked);
+  revealFrames = 0;
+  state = 'reveal';
+  document.getElementById('hint').textContent = revealText;
+}
+function finalizeRoll() {
+  state = 'settled';
+  processRollResult(pendingKnocked);
+}
+
+function isTenthFrameComplete(rolls) {
+  if (rolls.length < 2) return false;
+  if (rolls[0] === 10 || rolls[0] + rolls[1] === 10) return rolls.length >= 3;
+  return true;
+}
+function computeFrameScores() {
+  const flat = frames.flatMap(f => f.rolls);
+  let idx = 0, cumulative = 0;
+  const scores = [];
+  for (let f = 0; f < 10; f++) {
+    const frame = frames[f];
+    if (f < 9) {
+      if (frame.rolls.length === 0) { scores.push(null); continue; }
+      if (frame.rolls[0] === 10) {
+        if (flat.length >= idx + 3) { cumulative += 10 + flat[idx + 1] + flat[idx + 2]; scores.push(cumulative); idx += 1; }
+        else scores.push(null);
+      } else if (frame.rolls.length >= 2 && frame.rolls[0] + frame.rolls[1] === 10) {
+        if (flat.length >= idx + 3) { cumulative += 10 + flat[idx + 2]; scores.push(cumulative); idx += 2; }
+        else scores.push(null);
+      } else if (frame.rolls.length >= 2) {
+        cumulative += frame.rolls[0] + frame.rolls[1]; scores.push(cumulative); idx += 2;
+      } else scores.push(null);
+    } else {
+      if (isTenthFrameComplete(frame.rolls)) { cumulative += frame.rolls.reduce((a, b) => a + b, 0); scores.push(cumulative); }
+      else scores.push(null);
+    }
+  }
+  return scores;
+}
+function symbolFor(rolls, i) {
+  const v = rolls[i];
+  if (v === undefined) return '';
+  if (v === 10) return 'X';
+  if (i > 0 && rolls[i - 1] !== 10 && rolls[i - 1] + v === 10) return '/';
+  if (v === 0) return '-';
+  return String(v);
+}
+function renderScoreboard() {
+  const rollsRow = document.getElementById('rollsRow');
+  rollsRow.innerHTML = '';
+  const scores = computeFrameScores();
+  for (let f = 0; f < 10; f++) {
+    const rolls = frames[f].rolls;
+    const nBoxes = f === 9 ? 3 : 2;
+    const td = document.createElement('td');
+    td.className = 'frame-cell' + (f === currentFrameIdx && !gameOver ? ' current' : '');
+    const rollsDiv = document.createElement('div');
+    rollsDiv.className = 'rolls-row';
+    for (let i = 0; i < nBoxes; i++) {
+      if (f !== 9 && i === 1 && rolls[0] === 10) continue;
+      const box = document.createElement('div');
+      box.className = 'roll-box';
+      box.textContent = symbolFor(rolls, i);
+      rollsDiv.appendChild(box);
+    }
+    const scoreDiv = document.createElement('div');
+    scoreDiv.className = 'frame-score';
+    scoreDiv.textContent = scores[f] != null ? scores[f] : '';
+    const numDiv = document.createElement('div');
+    numDiv.className = 'frame-num';
+    numDiv.textContent = f + 1;
+    td.appendChild(rollsDiv); td.appendChild(scoreDiv); td.appendChild(numDiv);
+    rollsRow.appendChild(td);
+  }
+}
+function updateHint() {
+  const hint = document.getElementById('hint');
+  if (gameOver) { hint.textContent = 'Game over — start a new game'; return; }
+  const frame = frames[currentFrameIdx];
+  const rollNum = frame.rolls.length + 1;
+  hint.textContent = `Frame ${currentFrameIdx + 1}, roll ${rollNum} — slide to aim, swipe up to bowl`;
+}
+
+function drawLane() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0c0a14';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#2a2438';
+  ctx.fillRect(gutterLeft, 60, laneLeft - gutterLeft, H - 60 - 20);
+  ctx.fillRect(laneRight, 60, gutterRight - laneRight, H - 60 - 20);
+  const grad = ctx.createLinearGradient(laneLeft, 0, laneRight, 0);
+  grad.addColorStop(0, '#8a5a2b'); grad.addColorStop(0.5, '#c9924f'); grad.addColorStop(1, '#8a5a2b');
+  ctx.fillStyle = grad;
+  ctx.fillRect(laneLeft, 60, laneRight - laneLeft, H - 60 - 20);
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
+  for (let x = laneLeft + 12; x < laneRight; x += 14) { ctx.beginPath(); ctx.moveTo(x, 60); ctx.lineTo(x, H - 20); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(30,20,10,0.35)';
+  const arrowY = 430;
+  for (let i = -3; i <= 3; i++) {
+    const ax = 220 + i * 22;
+    ctx.beginPath(); ctx.moveTo(ax, arrowY - 10); ctx.lineTo(ax - 5, arrowY + 6); ctx.lineTo(ax + 5, arrowY + 6); ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(255,61,129,0.7)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(laneLeft, foulLineY); ctx.lineTo(laneRight, foulLineY); ctx.stroke();
+}
+function drawPins() {
+  pins.forEach(p => {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    if (!p.standing) {
+      const t = Math.min(1, p.fallT);
+      ctx.globalAlpha = 1 - t * 0.4;
+      ctx.rotate(t * 1.4);
+      ctx.scale(1 - t * 0.3, 1 - t * 0.5);
+    }
+    ctx.beginPath();
+    ctx.ellipse(0, 0, PIN_R * 0.6, PIN_R * 1.35, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#f4ede1'; ctx.fill();
+    ctx.strokeStyle = '#c9c1b3'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#ff3d81';
+    ctx.beginPath(); ctx.ellipse(0, -PIN_R * 0.55, PIN_R * 0.35, PIN_R * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  });
+}
+function drawBall() {
+  const g = ctx.createRadialGradient(ball.x - 3, ball.y - 3, 1, ball.x, ball.y, ball.r);
+  g.addColorStop(0, '#5be8ff'); g.addColorStop(1, '#1a6f8a');
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+}
+function drawAim() {
+  if (!dragging) return;
+  if (!committed) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(61,232,255,0.5)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(gutterLeft + 10, START_Y); ctx.lineTo(gutterRight - 10, START_Y); ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  if (!dragCurrent) return;
+  const vx = dragCurrent.x - commitPoint.x, vy = dragCurrent.y - commitPoint.y;
+  if (vy >= 0) return;
+  const power = Math.min(1, Math.hypot(vx, vy) / 150);
+  const spinEst = getCurveSetting();
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(255,61,129,${0.4 + power * 0.5})`;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  let px = ballXAtCommit, py = START_Y;
+  let pvx = Math.max(-13, Math.min(13, vx * 0.085));
+  let pvy = Math.max(-16, Math.min(-5, vy * 0.11));
+  ctx.moveTo(px, py);
+  for (let t = 0; t < 40; t++) {
+    const progress = Math.max(0, Math.min(1, (START_Y - py) / (START_Y - 100)));
+    pvx += spinEst * 9 * 0.05 * progress;
+    px += pvx * 2; py += pvy * 2;
+    ctx.lineTo(px, py);
+    if (py < 100) break;
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#f4ede1';
+  ctx.font = '12px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText(`power ${Math.round(power * 100)}%`, START_X, START_Y + 40);
+  ctx.restore();
+}
+function drawReveal() {
+  if (state !== 'reveal') return;
+  const fadeIn = Math.min(1, revealFrames / 12);
+  const fadeOut = revealFrames > REVEAL_HOLD - 15 ? Math.max(0, (REVEAL_HOLD - revealFrames) / 15) : 1;
+  const alpha = fadeIn * fadeOut;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 34px Impact, Arial Black, sans-serif';
+  ctx.fillStyle = 'rgba(16,14,26,0.55)';
+  ctx.fillRect(60, 320, W - 120, 60);
+  ctx.fillStyle = revealText.includes('STRIKE') || revealText.includes('SPARE') ? '#ff3d81' : '#3de8ff';
+  ctx.shadowColor = ctx.fillStyle;
+  ctx.shadowBlur = 14;
+  ctx.fillText(revealText, W / 2, 360);
+  ctx.restore();
+}
+function render() {
+  drawLane();
+  drawPins();
+  drawBall();
+  drawAim();
+  drawReveal();
+}
+
+function loop() {
+  if (state === 'rolling') { physicsFrame(); checkBallDone(); }
+  else if (state === 'settling') { physicsFrame(); if (!anyPinsMoving()) beginReveal(); }
+  else if (state === 'reveal') {
+    revealFrames++;
+    if (revealFrames >= REVEAL_HOLD) finalizeRoll();
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+
+function canvasPoint(evt) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = W / rect.width, scaleY = H / rect.height;
+  const cx = (evt.touches ? evt.touches[0].clientX : evt.clientX) - rect.left;
+  const cy = (evt.touches ? evt.touches[0].clientY : evt.clientY) - rect.top;
+  return { x: cx * scaleX, y: cy * scaleY };
+}
+function laneClampX(x) { return Math.max(gutterLeft + ball.r + 2, Math.min(gutterRight - ball.r - 2, x)); }
+
+function onDown(evt) {
+  if (state !== 'aiming' || gameOver) return;
+  const p = canvasPoint(evt);
+  const d = Math.hypot(p.x - ball.x, p.y - ball.y);
+  if (d > 70) return;
+  dragging = true; committed = false;
+  initialTouch = p; initialBallX = ball.x;
+  commitPoint = null; ballXAtCommit = ball.x; dragCurrent = null;
+  document.getElementById('hint').classList.add('active');
+  evt.preventDefault();
+}
+function onMove(evt) {
+  if (!dragging) return;
+  const p = canvasPoint(evt);
+  const dx = p.x - initialTouch.x, dy = p.y - initialTouch.y;
+  if (!committed) {
+    if (dy < -25) { committed = true; commitPoint = p; ballXAtCommit = ball.x; dragCurrent = p; }
+    else { ball.x = laneClampX(initialBallX + dx); }
+  } else {
+    dragCurrent = p;
+  }
+  evt.preventDefault();
+}
+function onUp() {
+  if (!dragging) return;
+  dragging = false;
+  document.getElementById('hint').classList.remove('active');
+  if (!committed) return;
+  const release = dragCurrent || commitPoint;
+  const vx = release.x - commitPoint.x, vy = release.y - commitPoint.y;
+  if (vy >= -8) return;
+
+  pinsStandingBeforeRoll = pins.filter(p => p.standing).length;
+  ball.x = ballXAtCommit;
+  ball.vx = Math.max(-13, Math.min(13, vx * 0.085));
+  ball.vy = Math.max(-16, Math.min(-5, vy * 0.11));
+  ball.spin = getCurveSetting() * 9;
+  state = 'rolling';
+}
+
+canvas.addEventListener('mousedown', onDown);
+canvas.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', onUp);
+canvas.addEventListener('touchstart', onDown, { passive: false });
+canvas.addEventListener('touchmove', onMove, { passive: false });
+canvas.addEventListener('touchend', onUp);
+
+document.getElementById('resetBtn').addEventListener('click', newGame);
+document.getElementById('playAgainBtn').addEventListener('click', newGame);
+
+newGame();
+loop();
+</script>
+</body>
+</html>
